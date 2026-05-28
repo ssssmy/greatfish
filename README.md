@@ -1,156 +1,146 @@
 # GreatFish · 摸鱼瓜区
 
-> A public anonymous sticky-note board, one canvas per topic. Open the URL —
-> you're in. No account, no invite, no document creation step. Inspired by
-> the recent meme of "everyone chatting on a shared Excel sheet at work".
+> 一张所有人都能贴便利贴的公共画布,按主题分频道。打开 URL 就能用 —— 不需要
+> 注册、不需要邀请、不需要建文档。灵感来自最近网上流行的"大家在共享 Excel
+> 表格里摸鱼吃瓜"那个梗。
 
-🐠 Live · **<https://greatfish.ssssmy.net>**
-🛰️ Sync server · `wss://greatfish-sync.ssssmy.partykit.dev`
+🐠 在线访问 · **<https://greatfish.ssssmy.net>**
+🛰️ 同步服务 · `wss://greatfish-sync.ssssmy.partykit.dev`
 
 ---
 
-## What is this
+## 这是什么
 
-Three public canvases (`work-tea` / `star-tea` / `love-tea`), each backed by
-its own [Durable Object](https://developers.cloudflare.com/durable-objects/).
-Double-click a canvas to drop a sticky, drag it around, type into it — every
-other open browser tab sees the change in real time.
+三张公共画布(`work-tea` / `star-tea` / `love-tea`),每张背后是一个独立的
+[Cloudflare Durable Object](https://developers.cloudflare.com/durable-objects/)。
+双击画布空白处就能贴便利贴,拖动改位置,点字编辑 —— 所有打开同一个频道
+的浏览器 tab 都会实时看见。
 
-There is no chat panel. There is no login. The grid **is** the conversation.
+**没有聊天面板,也没有登录。** 表格本身就是对话。
 
-This is a builder project, shipped in a weekend. Treat it as an existence
-proof, not a polished consumer product.
+这是一个 builder 项目,一个周末从 0 上线。当作"它存在"的证据看,不是消费级
+产品。
 
-## Stack
+## 技术栈
 
-| Layer | What | Why |
-|-------|------|-----|
-| Frontend | React 18 + Vite + TypeScript | Standard, ~180 KB gzip bundle |
-| State / sync | [Yjs](https://github.com/yjs/yjs) + [y-partykit](https://docs.partykit.io/reference/y-partykit-api/) | CRDT, conflict-free multi-user edits |
-| Backend | [PartyKit](https://www.partykit.io) on Cloudflare Workers + Durable Objects | One DO per channel; auto-scales, no SPOF |
-| Hosting | Cloudflare Pages (frontend) + PartyKit (backend) | $0 at MVP scale, global edge |
-| Filtering | [mint-filter](https://www.npmjs.com/package/mint-filter) | Sensitive-word screening, client-side |
+| 层 | 用什么 | 为什么 |
+|----|--------|--------|
+| 前端 | React 18 + Vite + TypeScript | 标准栈,bundle 约 180 KB gzip |
+| 状态 / 同步 | [Yjs](https://github.com/yjs/yjs) + [y-partykit](https://docs.partykit.io/reference/y-partykit-api/) | CRDT,多人编辑无冲突 |
+| 后端 | [PartyKit](https://www.partykit.io)(Cloudflare Workers + Durable Objects) | 一个频道一个 DO,自动扩展,无单点故障 |
+| 托管 | Cloudflare Pages(前端) + PartyKit(后端) | MVP 规模下 0 元,全球边缘加速 |
+| 内容过滤 | [mint-filter](https://www.npmjs.com/package/mint-filter) | 敏感词过滤,客户端 |
 
-The frontend bundle is intentionally small — there is no canvas library
-(Excalidraw, tldraw, etc.). Stickies are absolute-positioned divs with a
-hand-written drag handler (~200 lines). The trade-off is no zoom / pan /
-multi-select; that's V2 work.
+前端 bundle 故意做小 —— 没有用任何画布库(Excalidraw / tldraw 之类)。便利贴
+是绝对定位的 div,拖拽是手写的 pointer event handler(约 200 行)。代价是
+没有画布缩放 / 平移 / 框选,这些是 V2 的事。
 
-## Quickstart (local dev)
+## 本地开发(5 分钟跑起来)
 
 ```bash
-# Requirements: Node 20+, pnpm
+# 要求:Node 20+,pnpm 10+
 pnpm install
-pnpm party:dev   # starts PartyKit dev server on :1999
-pnpm dev         # starts Vite on :5173  (run in a separate terminal)
+pnpm party:dev   # 启动 PartyKit dev server 在 :1999
+pnpm dev         # 另开一个终端,启动 Vite 在 :5173
 ```
 
-Open `http://localhost:5173/c/work-tea` in two browser windows. Double-click
-to add stickies; you should see edits sync across windows in real time.
+浏览器开两个窗口访问 `http://localhost:5173/c/work-tea`,双击空白处贴便利
+贴,应该看到两边实时同步。
 
-Optional, populate the channels with seed content:
+(可选)给频道填初始内容:
 
 ```bash
-node scripts/seed.mjs    # writes 13 starter stickies across 3 channels
+node scripts/seed.mjs    # 给 3 个频道各填几条种子瓜
 ```
 
-Verify end-to-end sync programmatically:
+跑一遍端到端 sync 回归测试:
 
 ```bash
-node scripts/sync-smoke.mjs    # two Yjs clients, one writes, the other reads
+node scripts/sync-smoke.mjs    # 两个 Yjs 客户端,A 写 B 读,验证打通
 ```
 
-## Project layout
+## 项目结构
 
 ```
 .
-├── party/index.ts          # PartyKit server (Yjs sync + IP rate limit)
-├── partykit.json           # PartyKit deploy config
+├── party/index.ts          # PartyKit server(Yjs sync + IP rate limit)
+├── partykit.json           # PartyKit 部署配置
 ├── src/
-│   ├── App.tsx             # Routes: / /c/:slug /about /terms /admin
-│   ├── StickyCanvas.tsx    # The canvas + drag + Yjs binding
-│   ├── Admin.tsx           # Cross-channel admin view (cookie-token gated)
-│   ├── About.tsx           # Static content
-│   ├── filter.ts           # mint-filter wrapper
-│   ├── identity.ts         # Anonymous identity (localStorage)
+│   ├── App.tsx             # 路由: / /c/:slug /about /terms /admin
+│   ├── StickyCanvas.tsx    # 画布 + 拖拽 + Yjs 绑定
+│   ├── Admin.tsx           # 跨频道 admin 视图(cookie token 鉴权)
+│   ├── About.tsx           # 静态内容(关于 / 用户规范)
+│   ├── filter.ts           # mint-filter 封装
+│   ├── identity.ts         # 匿名身份(localStorage)
 │   └── index.css
 ├── scripts/
-│   ├── seed.mjs            # Populate channels with starter stickies
-│   ├── sync-smoke.mjs      # End-to-end sync regression test
-│   └── proxy-bootstrap.mjs # undici proxy bootstrap (for HTTPS_PROXY support)
-└── .github/workflows/      # CI: auto-deploy on push to main
+│   ├── seed.mjs            # 给频道填种子内容
+│   ├── sync-smoke.mjs      # 端到端 sync 回归测试
+│   └── proxy-bootstrap.mjs # undici 代理引导(用于网络受限环境)
+└── .github/workflows/      # CI: push 自动部署
 ```
 
-## How it stays cheap and reliable
+## 为什么便宜 + 稳定
 
-- **One Durable Object per channel.** Cloudflare runs them at the edge,
-  hibernating idle connections via the
-  [WebSocket Hibernation API](https://developers.cloudflare.com/durable-objects/best-practices/websockets/#websocket-hibernation).
-  Per-DO memory ceiling is 128 MB; expected ceiling per channel is roughly
-  1,000 concurrent viewers / 100 concurrent active editors before sharding.
-- **Persistence is automatic.** y-partykit writes Yjs history to DO storage.
-  No backups, no LevelDB, no cron jobs — Cloudflare guarantees 11 nines of
-  durability across regions.
-- **Rate limit, two layers.** The server caps connections at 20 per minute
-  per IP per room (read from `CF-Connecting-IP`). The client throttles new
-  sticky creation at 10 per minute per browser session.
-- **Spam, three layers.** Server-side rate limit, client+server sensitive
-  word filtering ([mint-filter](https://www.npmjs.com/package/mint-filter)),
-  plus a hidden `/admin` endpoint for human-in-the-loop deletion.
+- **一个频道一个 Durable Object。** Cloudflare 在边缘节点里跑,空闲连接走
+  [WebSocket Hibernation API](https://developers.cloudflare.com/durable-objects/best-practices/websockets/#websocket-hibernation)
+  休眠,几乎不吃 CPU。单 DO 内存上限 128 MB,实测单频道 ~1,000 并发观察者
+  / ~100 并发编辑者以下完全 OK。
+- **持久化自动搞定。** y-partykit 把 Yjs 历史写到 DO storage,Cloudflare 保
+  证 11 个 9 的耐久性 + 多区域副本。**没有备份脚本、没有 LevelDB、没有
+  cron。**
+- **限流,两层。** 服务端按 IP 限连(20/分钟/IP/频道,从 `CF-Connecting-IP`
+  header 取真实 IP);客户端按浏览器 session 限新建便利贴(10/分钟)。
+- **防 spam,三层。** 服务端限连 + 客户端
+  [mint-filter](https://www.npmjs.com/package/mint-filter) 敏感词替换 +
+  `/admin` 隐藏入口人工删帖。
 
-## Deployment
+## 部署
 
-### Backend (PartyKit on Cloudflare)
+### 后端(PartyKit on Cloudflare)
 
 ```bash
 pnpm party:deploy
 ```
 
-First time only, this opens a browser for GitHub OAuth. The default deploy
-publishes to `https://<project>.<username>.partykit.dev` on PartyKit's
-shared Cloudflare account. **Free tier covers ~100K requests/day and
-1M Durable Object operations/month**, ample for an MVP.
+首次会自动开浏览器走 GitHub OAuth。默认部署到 `https://<project>.<user>.partykit.dev`
+(运行在 PartyKit 共享的 Cloudflare 账号上)。**免费额度涵盖每天 10 万请求
++ 每月 100 万 DO 操作**,MVP 远远够。
 
-Custom backend domain (e.g. `greatfish-sync.example.com`) requires
-deploying to your own Cloudflare account, which in turn requires the
-Workers Paid plan ($5/month) because Durable Objects are not on the free
-Workers plan. For now we keep the `.partykit.dev` subdomain.
-
-If your network blocks `api.partykit.dev`, the `pnpm party:deploy` script
-auto-routes through `HTTPS_PROXY` via `scripts/proxy-bootstrap.mjs`:
+如果你的网络访问 `api.partykit.dev` 受限,`pnpm party:deploy` 自动会读
+`HTTPS_PROXY` 通过 `scripts/proxy-bootstrap.mjs` 走代理:
 
 ```bash
 HTTPS_PROXY=http://127.0.0.1:7897 pnpm party:deploy
 ```
 
-Set the admin token (random 32-byte hex):
+设置 admin token(32 字节随机):
 
 ```bash
-openssl rand -hex 32 | HTTPS_PROXY=http://127.0.0.1:7897 npx partykit env add ADMIN_TOKEN
+openssl rand -hex 32 | HTTPS_PROXY=http://127.0.0.1:7897 pnpm party env add ADMIN_TOKEN
 ```
 
-### Frontend (Cloudflare Pages)
+### 前端(Cloudflare Pages)
 
 ```bash
-echo "VITE_PARTY_HOST=greatfish-sync.<username>.partykit.dev" > .env.production
+echo "VITE_PARTY_HOST=greatfish-sync.<user>.partykit.dev" > .env.production
 pnpm build
 pnpm exec wrangler pages deploy ./dist --project-name=greatfish-web
 ```
 
-First-time `wrangler login` opens a browser for Cloudflare OAuth.
+首次 `wrangler login` 会开浏览器走 Cloudflare OAuth。
 
-To bind a custom domain to the Pages project (zone must be on the same
-Cloudflare account):
+绑自定义域(zone 必须在同一个 CF 账号下):
 
 ```bash
-# Add the domain to the Pages project (uses your CF API token)
+# 给 Pages 项目加自定义域
 curl -X POST \
   -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"name":"greatfish.example.com"}' \
   "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/greatfish-web/domains"
 
-# Add the CNAME (also via CF API, or via the dashboard)
+# 加 CNAME(也可以走 CF dashboard)
 curl -X POST \
   -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
   -H "Content-Type: application/json" \
@@ -158,68 +148,64 @@ curl -X POST \
   "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records"
 ```
 
-SSL provisioning takes ~1–2 minutes after the CNAME is in place.
+CNAME 加好后 SSL 证书签发约 1–2 分钟。
 
-### Continuous deployment via GitHub Actions
+### GitHub Actions 自动部署
 
-Two workflows in `.github/workflows/`:
+`.github/workflows/` 下三个 workflow:
 
-- `deploy-web.yml` — builds and deploys the frontend on pushes that touch
-  `src/`, `index.html`, `vite.config.ts`, or `package.json`.
-- `deploy-party.yml` — deploys the PartyKit backend on pushes that touch
-  `party/`, `partykit.json`, or `package.json`.
+- `ci.yml` —— 类型检查 + 构建,push / PR 都跑
+- `deploy-web.yml` —— 修改 `src/` / `index.html` / `vite.config.ts` /
+  `tsconfig.json` / `package.json` / `pnpm-lock.yaml` 时自动跑;也可在
+  Actions 页手工触发
+- `deploy-party.yml` —— 修改 `party/` / `partykit.json` / `package.json` /
+  `pnpm-lock.yaml` 时自动跑;也可手工触发
 
-These require the following GitHub Actions secrets (set them in
-**Settings → Secrets and variables → Actions** on the GitHub repo):
+需要在 GitHub repo 的 **Settings → Secrets and variables → Actions** 配
+4 个 secret:
 
-| Secret | What | How to obtain |
-|--------|------|---------------|
-| `CLOUDFLARE_API_TOKEN` | CF token with **Cloudflare Pages: Edit** scope | Create at <https://dash.cloudflare.com/profile/api-tokens> |
-| `CLOUDFLARE_ACCOUNT_ID` | Your account id | Read from CF dashboard URL, or `wrangler whoami` |
-| `PARTYKIT_LOGIN` | PartyKit CI token | `npx partykit token generate` |
+| Secret | 干嘛 | 怎么拿 |
+|--------|------|--------|
+| `CLOUDFLARE_API_TOKEN` | scope = **Cloudflare Pages: Edit** | <https://dash.cloudflare.com/profile/api-tokens> 新建 |
+| `CLOUDFLARE_ACCOUNT_ID` | 你的 CF 账号 ID | CF dashboard URL 里就有,或 `wrangler whoami` |
+| `PARTYKIT_LOGIN` | PartyKit 用户名 | 通常 = GitHub 用户名,例如 `ssssmy` |
+| `PARTYKIT_TOKEN` | PartyKit CI 用 JWT | `pnpm party token generate` |
 
-Both workflows have `workflow_dispatch` triggers so you can deploy manually
-from the Actions tab as well.
+## 可配置项
 
-## Configuration knobs
+| 变量 | 在哪 | 默认 | 用途 |
+|------|------|------|------|
+| `VITE_PARTY_HOST` | `.env.local` / `.env.production` | dev 时 `localhost:1999` | 客户端连后端的域名 |
+| `ADMIN_TOKEN` | PartyKit env | 未设置 | admin endpoint 的服务端 token |
+| `HTTPS_PROXY` | shell env | 未设置 | 设了的话,Node fetch + dev 脚本的 `ws` 都走代理 |
 
-| Variable | Where | Default | Purpose |
-|----------|-------|---------|---------|
-| `VITE_PARTY_HOST` | `.env.local` / `.env.production` | `localhost:1999` (dev) | Hostname the client uses to reach the sync server |
-| `ADMIN_TOKEN` | PartyKit env var | unset | Server-side token for the admin endpoint (set via `partykit env add`) |
-| `HTTPS_PROXY` | shell env | unset | If set, the proxy bootstrap routes Node fetch (and the `ws` client in dev scripts) through this proxy |
+## Roadmap(V2 候选)
 
-## Roadmap (V2 candidates)
+- 用 Yjs awareness 显示其他人光标 / 在线
+- 移动端友好(双指缩放、触摸优化)
+- 服务端审核:DO storage 存被封禁 IP、申诉流程
+- 后端自定义域(需 Workers Paid plan,$5/月)
+- 按地理 / 按公司分频道(类似 Blind 的"你公司的墙")
+- 阅后即焚模式(便利贴 24 小时自动消失)
+- "X 人在打字" awareness 指示
+- 可选稳定身份(给想要持续性的用户做轻量登录)
 
-- Cursors / presence via Yjs awareness — see who else is on the canvas right now
-- Mobile-friendly canvas (pinch-zoom, larger drag targets)
-- Server-side moderation: persist banned IPs in DO storage, automatic appeal flow
-- Custom domain for the sync server (requires Workers Paid plan)
-- Geographic / per-company canvases (Blind-style "your building's wall")
-- Ephemeral content mode (24-hour TTL stickies)
-- Awareness-based "X people typing" indicator
-- Optional sign-in with a stable identity for users who want continuity
+## 已知限制
 
-## Known limitations
+- `/admin` 路由的鉴权目前是**客户端 localStorage 比对**,不能防有动力的
+  攻击者。V2 必须改成服务端 token 校验。当前生产 ADMIN_TOKEN 跟 PartyKit
+  env 里那个一致,**别贴到公开地方**。
+- 身份是按浏览器存的(localStorage)。清缓存 / 换浏览器会换新身份,旧便
+  利贴还在,但不再算"你的"(没法点删除)。
+- 没有画图工具是有意的 —— 这是文字格子产品,不是白板。
+- 移动端能用,但没特别优化。
 
-- The `/admin` route's auth is currently a client-side comparison against a
-  localStorage token. It is **not** secure against a determined attacker who
-  reads the source. V2 must move auth to the server. The token saved here
-  is the same that the server's admin endpoint trusts; do not paste it in
-  public.
-- Identity is per-browser (localStorage). Clearing site data or switching
-  browsers issues a new identity; the old stickies remain but are no longer
-  "yours" for delete purposes.
-- Drawing tools are absent on purpose — this is a text-on-a-grid product,
-  not a whiteboard.
-- Mobile is functional but not optimized.
+## 致谢
 
-## Acknowledgements
-
-- The shared-Excel-chat meme that inspired the product.
-- [PartyKit](https://www.partykit.io) for making Cloudflare Workers + DO + Yjs feel like one tool.
-- [Yjs](https://github.com/yjs/yjs) for being the CRDT library that actually works.
+- 共享 Excel 摸鱼吃瓜的那个梗本身
+- [PartyKit](https://www.partykit.io) —— 让 Workers + DO + Yjs 用起来像一个工具
+- [Yjs](https://github.com/yjs/yjs) —— 真的能用的 CRDT 库
 
 ## License
 
-MIT.
+MIT
