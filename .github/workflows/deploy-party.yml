@@ -1,0 +1,39 @@
+name: Deploy backend (PartyKit)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "party/**"
+      - "partykit.json"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/deploy-party.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-party
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Deploy to PartyKit
+        env:
+          PARTYKIT_LOGIN: ${{ secrets.PARTYKIT_LOGIN }}
+          PARTYKIT_TOKEN: ${{ secrets.PARTYKIT_TOKEN }}
+        run: npx partykit deploy

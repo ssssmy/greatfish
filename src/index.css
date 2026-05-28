@@ -1,0 +1,412 @@
+:root {
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", system-ui,
+    sans-serif;
+  background: #0f0f12;
+  color: #e7e7e7;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.home {
+  min-height: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 64px 24px 32px;
+}
+
+.home h1 {
+  font-size: 56px;
+  margin: 0 0 8px;
+  letter-spacing: -0.02em;
+}
+
+.tagline {
+  color: #9aa0a6;
+  font-size: 18px;
+  margin: 0 0 48px;
+}
+
+.channels {
+  display: grid;
+  gap: 16px;
+}
+
+.channel-card {
+  display: grid;
+  gap: 4px;
+  padding: 24px;
+  border: 1px solid #2a2a30;
+  border-radius: 12px;
+  background: #16161a;
+  cursor: pointer;
+  transition: border-color 120ms, transform 120ms;
+}
+
+.channel-card:hover {
+  border-color: #5566ee;
+  transform: translateY(-1px);
+}
+
+.channel-name {
+  font-size: 20px;
+  font-weight: 600;
+  color: #c6cad1;
+}
+
+.channel-desc {
+  font-size: 13px;
+  color: #5e6168;
+  font-family: ui-monospace, SF Mono, Menlo, monospace;
+}
+
+.channel-label {
+  font-size: 12px;
+  color: #9aa0a6;
+  margin-top: 8px;
+}
+
+.home-footer {
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid #1f1f24;
+  display: flex;
+  gap: 24px;
+  font-size: 13px;
+}
+
+.error {
+  padding: 32px;
+  color: #ef4444;
+}
+
+.page {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 48px 24px;
+  line-height: 1.7;
+}
+
+.page-wide {
+  max-width: 1080px;
+}
+
+.page h1 {
+  font-size: 36px;
+  margin: 16px 0 8px;
+  letter-spacing: -0.01em;
+}
+
+.page h2 {
+  font-size: 20px;
+  margin-top: 32px;
+  color: #c6cad1;
+}
+
+.page ul {
+  padding-left: 20px;
+}
+
+.page li {
+  margin: 4px 0;
+}
+
+.page .mt {
+  margin-top: 32px;
+}
+
+.page p {
+  color: #c6cad1;
+}
+
+.muted {
+  color: #6b6f76;
+}
+
+code {
+  background: #16161a;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-family: ui-monospace, SF Mono, Menlo, monospace;
+  font-size: 13px;
+}
+
+.back {
+  display: inline-block;
+  color: #9aa0a6;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.back:hover {
+  color: #c6cad1;
+}
+
+.input {
+  display: block;
+  width: 100%;
+  margin: 16px 0 12px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid #2a2a30;
+  background: #16161a;
+  color: #e7e7e7;
+  font: inherit;
+}
+
+.input:focus {
+  outline: 0;
+  border-color: #5566ee;
+}
+
+.btn {
+  padding: 10px 18px;
+  border: 0;
+  border-radius: 8px;
+  background: #5566ee;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.btn:hover {
+  background: #4252d6;
+}
+
+.btn-link {
+  border: 0;
+  background: none;
+  color: #9aa0a6;
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
+.btn-link:hover {
+  color: #c6cad1;
+}
+
+.btn-link.danger {
+  color: #ef4444;
+}
+
+.btn-link.danger:hover {
+  color: #f87171;
+}
+
+.admin-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.admin-channel {
+  margin-top: 32px;
+}
+
+.admin-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 12px;
+}
+
+.admin-row {
+  display: grid;
+  grid-template-columns: 12px 100px 1fr 140px 40px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid #1f1f24;
+  border-radius: 8px;
+  background: #15151a;
+  font-size: 13px;
+}
+
+.admin-row .admin-author {
+  color: #c6cad1;
+  font-weight: 600;
+}
+
+.admin-row .admin-text {
+  color: #e7e7e7;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.empty {
+  padding: 24px;
+  text-align: center;
+  color: #6b6f76;
+  border: 1px dashed #2a2a30;
+  border-radius: 8px;
+}
+
+.badge-admin {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #5566ee;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1f1f24;
+  color: #e7e7e7;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-size: 13px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  z-index: 100;
+}
+
+.stage {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-bottom: 1px solid #1f1f24;
+  background: #0f0f12;
+  z-index: 10;
+}
+
+.brand {
+  font-weight: 600;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  color: #9aa0a6;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.conn {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-family: ui-monospace, SF Mono, Menlo, monospace;
+  font-size: 11px;
+}
+
+.conn-connecting {
+  background: #3a2a14;
+  color: #f59e0b;
+}
+
+.conn-connected {
+  background: #14321f;
+  color: #10b981;
+}
+
+.conn-disconnected {
+  background: #3a1414;
+  color: #ef4444;
+}
+
+.hint {
+  color: #5e6168;
+}
+
+.canvas {
+  flex: 1;
+  position: relative;
+  overflow: auto;
+  background:
+    radial-gradient(circle, #1d1d22 1px, transparent 1px) 0 0 / 24px 24px,
+    #0f0f12;
+}
+
+.sticky {
+  position: absolute;
+  width: 180px;
+  min-height: 100px;
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: #1a1a1a;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sticky:active {
+  cursor: grabbing;
+}
+
+.sticky-author {
+  font-size: 11px;
+  opacity: 0.75;
+  font-weight: 600;
+}
+
+.sticky textarea {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  outline: 0;
+  resize: none;
+  font: inherit;
+  font-size: 14px;
+  color: inherit;
+  min-height: 60px;
+}
+
+.sticky-delete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.18);
+  color: inherit;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 20px;
+  padding: 0;
+}
+
+.sticky-delete:hover {
+  background: rgba(0, 0, 0, 0.32);
+}
