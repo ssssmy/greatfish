@@ -40,6 +40,7 @@ jobs:
       - name: Build
         env:
           VITE_PARTY_HOST: greatfish-sync.ssssmy.partykit.dev
+          VITE_ADMIN_TOKEN: ${{ secrets.VITE_ADMIN_TOKEN }}
         run: pnpm build
 
       - name: Deploy to Cloudflare Pages

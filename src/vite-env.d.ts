@@ -2,6 +2,7 @@
 
 interface ImportMetaEnv {
   readonly VITE_PARTY_HOST?: string;
+  readonly VITE_ADMIN_TOKEN?: string;
 }
 
 interface ImportMeta {

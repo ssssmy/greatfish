@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "party:dev": "partykit dev",
+    "party": "node --import ./scripts/proxy-bootstrap.mjs ./node_modules/partykit/dist/bin.mjs",
     "party:deploy": "node --import ./scripts/proxy-bootstrap.mjs ./node_modules/partykit/dist/bin.mjs deploy",
     "party:login": "node --import ./scripts/proxy-bootstrap.mjs ./node_modules/partykit/dist/bin.mjs login"
   },

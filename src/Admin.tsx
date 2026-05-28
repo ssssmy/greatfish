@@ -29,11 +29,29 @@ function clearToken() {
   localStorage.removeItem(ADMIN_KEY);
 }
 
+// Client-side admin gate. The only acceptable tokens are listed here.
+// Anyone reading the JS bundle can see these strings — this is intentionally
+// only "stop a casual passerby" level security, not real auth. The proper
+// fix (server-side ADMIN_TOKEN check inside party/index.ts) is V2 work.
+//
+// VITE_ADMIN_TOKEN is read at build time from .env.production (or the
+// deploy-web.yml workflow env). If set, that exact value is also accepted
+// — letting you use the same long random token everywhere without baking
+// the dev token into prod.
 const DEV_TOKEN = "greatfish-admin-dev";
+const PROD_TOKEN = (import.meta.env.VITE_ADMIN_TOKEN ?? "").trim();
+
+function isAcceptable(input: string): boolean {
+  if (!input) return false;
+  if (import.meta.env.DEV && input === DEV_TOKEN) return true;
+  if (PROD_TOKEN && input === PROD_TOKEN) return true;
+  return false;
+}
 
 export function Admin({ channels, partyHost }: Props) {
   const [token, setToken] = useState<string | null>(getStoredToken);
   const [draft, setDraft] = useState("");
+  const [error, setError] = useState("");
 
   if (!token) {
     return (
@@ -43,15 +61,19 @@ export function Admin({ channels, partyHost }: Props) {
         </Link>
         <h1>admin · 登录</h1>
         <p className="muted">
-          输入 admin token。Dev 环境的默认 token 是 <code>greatfish-admin-dev</code>。
-          生产环境从环境变量或部署配置读取。
+          {import.meta.env.DEV
+            ? "Dev 环境,默认 token: greatfish-admin-dev。"
+            : "需要正确的 admin token。"}
         </p>
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (draft === DEV_TOKEN || draft.length > 4) {
+            if (isAcceptable(draft)) {
               storeToken(draft);
               setToken(draft);
+              setError("");
+            } else {
+              setError("token 错误");
             }
           }}
         >
@@ -66,6 +88,7 @@ export function Admin({ channels, partyHost }: Props) {
           <button type="submit" className="btn">
             进入
           </button>
+          {error && <p className="muted" style={{ color: "#ef4444", marginTop: 8 }}>{error}</p>}
         </form>
       </div>
     );
