@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import * as Y from "yjs";
 import YPartyKitProvider from "y-partykit/provider";
@@ -39,6 +39,14 @@ function safeRenderColor(value: unknown): string {
 export function Admin({ channels, partyHost }: Props) {
   const [token, setToken] = useState<string | null>(getStoredToken);
   const [draft, setDraft] = useState("");
+
+  // Stable reference — otherwise AdminChannel's useEffect re-runs every
+  // render, destroys + recreates the WS provider, and trips the per-IP
+  // rate limit before the admin can even click anything.
+  const handleTokenRejected = useCallback(() => {
+    clearToken();
+    setToken(null);
+  }, []);
 
   if (!token) {
     return (
@@ -104,10 +112,7 @@ export function Admin({ channels, partyHost }: Props) {
           name={c.name}
           partyHost={partyHost}
           adminToken={token}
-          onTokenRejected={() => {
-            clearToken();
-            setToken(null);
-          }}
+          onTokenRejected={handleTokenRejected}
         />
       ))}
     </div>
