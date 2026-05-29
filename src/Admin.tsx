@@ -163,11 +163,15 @@ function AdminChannel({
       setState((s) => ({ ...s, connected: true }));
     }
 
-    // If the server closes us with our auth code (4001) repeatedly, the token
-    // is probably wrong — surface that to the user.
+    // Listen for the server's close codes so we can detect a wrong admin
+    // token immediately and bounce the user back to the login form.
+    //   4001 = no/bad identity (should never happen for admin since identity
+    //          is mandatory and always well-formed by the client)
+    //   4003 = admin token rejected by server
+    //   4429 = IP rate-limited
     let disconnectCount = 0;
     const onConnectionClose = (e: { code?: number; reason?: string }) => {
-      if (e?.code === 4001) {
+      if (e?.code === 4003 || e?.code === 4001) {
         onTokenRejected();
         return;
       }

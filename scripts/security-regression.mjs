@@ -281,6 +281,29 @@ async function test_rate_limit_server_side() {
   witness.provider.destroy();
 }
 
+async function test_bad_admin_token_rejected() {
+  const room = ROOM + "-badadmin";
+  const { provider } = makeProvider(room, {
+    identity: encodeIdentity(ATTACKER),
+    admin: "definitely-not-the-real-admin-token-1234567890",
+  });
+  try {
+    await waitConnected(provider, 2500);
+    await new Promise((r) => setTimeout(r, 800));
+    record(
+      "auth-vuln bad-admin-token rejected",
+      !provider.wsconnected,
+      provider.wsconnected
+        ? "wrong admin token still connected (silent downgrade?)"
+        : "server closed connection",
+    );
+  } catch (e) {
+    record("auth-vuln bad-admin-token rejected", true, "connect failed: " + e.message);
+  } finally {
+    provider.destroy();
+  }
+}
+
 async function test_legit_user_can_still_write() {
   const room = ROOM + "-legit";
   const witness = makeProvider(room, { identity: encodeIdentity(WITNESS) });
@@ -328,6 +351,7 @@ try {
   await test_delete_other_user_sticky_rejected();
   await test_sensitive_word_rejected_server_side();
   await test_rate_limit_server_side();
+  await test_bad_admin_token_rejected();
   await test_legit_user_can_still_write();
 } catch (err) {
   console.error("runner crashed:", err);

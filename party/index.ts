@@ -201,7 +201,20 @@ export default class GreatFishParty implements Party.Server {
 
     const adminToken = url.searchParams.get("admin");
     const env = (this.room.env as Env) ?? {};
-    const isAdmin = !!adminToken && !!env.ADMIN_TOKEN && adminToken === env.ADMIN_TOKEN;
+    const adminTokenSupplied = !!adminToken && adminToken.length > 0;
+    const isAdmin =
+      adminTokenSupplied && !!env.ADMIN_TOKEN && adminToken === env.ADMIN_TOKEN;
+
+    // If the caller explicitly tried to authenticate as admin but the token
+    // is wrong, refuse the connection so the client sees a real signal
+    // instead of silently downgrading to a non-admin session. Close code
+    // 4003 = "admin token rejected" (client uses it to clear the bad token
+    // from localStorage and show the login form again).
+    if (adminTokenSupplied && !isAdmin) {
+      console.warn(`[${this.room.id}] bad admin token from ip=${ip} id=${identity.id}`);
+      conn.close(4003, "bad admin token");
+      return;
+    }
 
     conn.setState({ identity, isAdmin, writes: [] });
     console.log(
