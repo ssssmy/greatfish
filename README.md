@@ -171,6 +171,9 @@ CNAME 加好后 SSL 证书签发约 1–2 分钟。
 | `PARTYKIT_LOGIN` | PartyKit 用户名 | 通常 = GitHub 用户名,例如 `ssssmy` |
 | `PARTYKIT_TOKEN` | PartyKit CI 用 JWT | `pnpm party token generate` |
 
+⚠️ **不要**配置 `VITE_ADMIN_TOKEN` secret —— `VITE_` 前缀的 env 会被 Vite
+内联到公开 JS bundle 里。admin token 现在只在服务端(PartyKit env)。
+
 ## 可配置项
 
 | 变量 | 在哪 | 默认 | 用途 |
@@ -190,15 +193,36 @@ CNAME 加好后 SSL 证书签发约 1–2 分钟。
 - "X 人在打字" awareness 指示
 - 可选稳定身份(给想要持续性的用户做轻量登录)
 
+## 安全模型(v2,2026-05-29 修复后)
+
+| 校验项 | 客户端 | 服务端 |
+|---|---|---|
+| 必须携带 identity 连接 WS | / | ✅ 缺则 close(4001) |
+| identity 字段 shape | 仅校验本地 cache | ✅ `id/name/color` 长度 + 调色板/十六进制 |
+| admin token | 仅 UX 缓存(localStorage) | ✅ 比对 PartyKit `env.ADMIN_TOKEN` |
+| 便利贴 `authorId` 不能伪造 | / | ✅ 校验 = 当前连接的 identity.id |
+| `authorId` 不能在 update 中被改写 | / | ✅ 拒绝 update |
+| 便利贴 ownership(删/改自己的)| 仅 UI 按钮 | ✅ 校验 ownership 或 admin |
+| 颜色白名单(防 CSS url 注入)| `safeRenderColor` fallback | ✅ 写入校验 `#[0-9a-f]{3,8}` |
+| 敏感词过滤(mint-filter) | UX 提示 | ✅ 写入拦截 |
+| 每连接 mutations | 10/分钟 UX 节流 | ✅ 15/分钟硬上限(admin 200/min)|
+| 每 IP 新连接 | / | ✅ 20/分钟/IP/频道 |
+| 数据范围 | / | ✅ 仅允许写 `stickies` Y.Map,其它 share 被拒 |
+
+所有违例 update 在服务端通过 sandbox doc 校验后**整批丢弃**,不进 doc 也不
+广播给其他客户端。攻击者本地 Yjs 会因为 server 推 sync step1 被纠回到正
+确状态。
+
+详见 `scripts/security-regression.mjs`,7 个 witness-based 测试覆盖
+Shannon(2026-05-28)安全审查里的全部 critical/high 项,持续可重放。
+
 ## 已知限制
 
-- `/admin` 路由的鉴权目前是**客户端 localStorage 比对**,不能防有动力的
-  攻击者。V2 必须改成服务端 token 校验。当前生产 ADMIN_TOKEN 跟 PartyKit
-  env 里那个一致,**别贴到公开地方**。
 - 身份是按浏览器存的(localStorage)。清缓存 / 换浏览器会换新身份,旧便
-  利贴还在,但不再算"你的"(没法点删除)。
-- 没有画图工具是有意的 —— 这是文字格子产品,不是白板。
+  利贴还在,但不再算"你的"(没法点删除)。这是 trade-off,不是 bug。
 - 移动端能用,但没特别优化。
+- 不做画布缩放 / 平移 / 框选,V2 的事。
+- mint-filter 字典很小,只挡明显的 spam / 色情 / 政治词。专业词库可扩。
 
 ## 致谢
 
