@@ -47,4 +47,8 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy ./dist --project-name=greatfish-web --branch=main --commit-message="${{ github.event.head_commit.message || 'manual deploy' }}"
+          # `--commit-message` removed: GitHub Actions doesn't quote
+          # interpolated multi-word values when wrangler-action splits the
+          # command into argv, which broke long/multi-line commit messages.
+          # CF Pages derives a deployment name from the SHA anyway.
+          command: pages deploy ./dist --project-name=greatfish-web --branch=main
