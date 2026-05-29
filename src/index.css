@@ -282,6 +282,159 @@ code {
   z-index: 100;
 }
 
+/* ─── Toolbar ───────────────────────────────────────────────────────── */
+
+.sticky-toolbar {
+  position: absolute;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: #1f1f24;
+  color: #e7e7e7;
+  border: 1px solid #2d2d36;
+  border-radius: 10px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.tb-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tb-divider {
+  width: 1px;
+  align-self: stretch;
+  background: #2d2d36;
+  margin: 0 2px;
+}
+
+.tb-swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  padding: 0;
+  cursor: pointer;
+  transition: transform 80ms;
+}
+
+.tb-swatch:hover {
+  transform: scale(1.15);
+}
+
+.tb-swatch.active {
+  outline: 2px solid #e7e7e7;
+  outline-offset: 1px;
+}
+
+.tb-color-input {
+  width: 20px;
+  height: 20px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 2px;
+}
+
+.tb-color-input::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.tb-color-input::-webkit-color-swatch {
+  border: 1px dashed #6b6f76;
+  border-radius: 4px;
+}
+
+.tb-label {
+  color: #9aa0a6;
+  margin: 0 2px;
+  font-weight: 600;
+}
+
+.tb-num {
+  display: inline-block;
+  min-width: 28px;
+  text-align: center;
+  font-family: ui-monospace, SF Mono, Menlo, monospace;
+  font-size: 11px;
+  color: #c6cad1;
+}
+
+.tb-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: 1px solid #2d2d36;
+  background: #15151a;
+  color: #c6cad1;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0;
+}
+
+.tb-btn:hover {
+  background: #25252c;
+}
+
+.tb-font {
+  min-width: 24px;
+  height: 22px;
+  border-radius: 4px;
+  border: 1px solid #2d2d36;
+  background: #15151a;
+  color: #c6cad1;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0 6px;
+}
+
+.tb-font.active {
+  background: #5566ee;
+  color: #fff;
+  border-color: #5566ee;
+}
+
+.tb-shape {
+  width: 24px;
+  height: 22px;
+  border-radius: 4px;
+  border: 1px solid #2d2d36;
+  background: #15151a;
+  color: #c6cad1;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
+.tb-shape.active {
+  background: #5566ee;
+  color: #fff;
+  border-color: #5566ee;
+}
+
+.tb-danger {
+  height: 22px;
+  border-radius: 4px;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0 8px;
+}
+
+.tb-danger:hover {
+  background: rgba(239, 68, 68, 0.22);
+}
+
 .stage {
   display: flex;
   flex-direction: column;
@@ -355,9 +508,7 @@ code {
 
 .sticky {
   position: absolute;
-  width: 180px;
-  min-height: 100px;
-  border-radius: 6px;
+  /* width/height/border-radius now set inline based on shape + size */
   padding: 8px 10px;
   color: #1a1a1a;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
@@ -367,6 +518,30 @@ code {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  transition: box-shadow 120ms;
+}
+
+.sticky-selected {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5),
+    0 0 0 2px #5566ee, 0 0 0 4px rgba(85, 102, 238, 0.3);
+  z-index: 5;
+}
+
+.sticky-circle {
+  /* Circle shape: textarea must stay centered within the round bounds */
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 12% 12%;
+}
+
+.sticky-circle .sticky-author {
+  text-align: center;
+  width: 100%;
+}
+
+.sticky-circle textarea {
+  text-align: center;
 }
 
 .sticky:active {

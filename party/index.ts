@@ -66,6 +66,8 @@ function isValidColor(value: unknown): value is string {
   return typeof value === "string" && value.length <= 9 && HEX_COLOR_RE.test(value);
 }
 
+type StickyShape = "sticky" | "rect" | "circle";
+
 type StickyNote = {
   id: string;
   x: number;
@@ -75,7 +77,14 @@ type StickyNote = {
   authorId: string;
   authorName: string;
   ts: number;
+  // v2 customization fields — all optional, render defaults supplied client-side
+  w?: number;
+  h?: number;
+  fontSize?: number;
+  shape?: StickyShape;
 };
+
+const VALID_SHAPES: ReadonlySet<string> = new Set(["sticky", "rect", "circle"]);
 
 type Identity = { id: string; name: string; color: string };
 
@@ -90,7 +99,7 @@ type Env = { ADMIN_TOKEN?: string };
 function isStickyShape(s: unknown): s is StickyNote {
   if (!s || typeof s !== "object") return false;
   const n = s as Partial<StickyNote>;
-  return (
+  const baseOk =
     typeof n.id === "string" && n.id.length > 0 && n.id.length <= 32 &&
     typeof n.x === "number" && Number.isFinite(n.x) && Math.abs(n.x) < 100_000 &&
     typeof n.y === "number" && Number.isFinite(n.y) && Math.abs(n.y) < 100_000 &&
@@ -98,8 +107,24 @@ function isStickyShape(s: unknown): s is StickyNote {
     typeof n.color === "string" && n.color.length <= 16 &&
     typeof n.authorId === "string" && n.authorId.length > 0 && n.authorId.length <= 32 &&
     typeof n.authorName === "string" && n.authorName.length > 0 && n.authorName.length <= 32 &&
-    typeof n.ts === "number" && Number.isFinite(n.ts)
-  );
+    typeof n.ts === "number" && Number.isFinite(n.ts);
+  if (!baseOk) return false;
+
+  // Optional v2 fields — if present, must be in range. Caps prevent DoS via
+  // huge widths/fonts and prevent storing arbitrary opaque enums for shape.
+  if (n.w !== undefined) {
+    if (typeof n.w !== "number" || !Number.isFinite(n.w) || n.w < 60 || n.w > 800) return false;
+  }
+  if (n.h !== undefined) {
+    if (typeof n.h !== "number" || !Number.isFinite(n.h) || n.h < 40 || n.h > 800) return false;
+  }
+  if (n.fontSize !== undefined) {
+    if (typeof n.fontSize !== "number" || !Number.isFinite(n.fontSize) || n.fontSize < 10 || n.fontSize > 48) return false;
+  }
+  if (n.shape !== undefined) {
+    if (typeof n.shape !== "string" || !VALID_SHAPES.has(n.shape)) return false;
+  }
+  return true;
 }
 
 function textIsClean(text: string): boolean {
