@@ -82,9 +82,23 @@ type StickyNote = {
   h?: number;
   fontSize?: number;
   shape?: StickyShape;
+  // v3 social fields
+  z?: number;                                    // bring-to-front / send-to-back
+  parentId?: string;                             // reply threading
+  reactions?: Record<string, string[]>;          // emoji -> identityIds
 };
 
 const VALID_SHAPES: ReadonlySet<string> = new Set(["sticky", "rect", "circle"]);
+
+const VALID_REACTIONS: ReadonlySet<string> = new Set([
+  "👍",
+  "❤️",
+  "😂",
+  "😢",
+  "🍉",
+  "🔥",
+]);
+const MAX_REACTORS_PER_EMOJI = 5000;
 
 type Identity = { id: string; name: string; color: string };
 
@@ -124,7 +138,80 @@ function isStickyShape(s: unknown): s is StickyNote {
   if (n.shape !== undefined) {
     if (typeof n.shape !== "string" || !VALID_SHAPES.has(n.shape)) return false;
   }
+  if (n.z !== undefined) {
+    if (typeof n.z !== "number" || !Number.isFinite(n.z) || Math.abs(n.z) > 1_000_000) return false;
+  }
+  if (n.parentId !== undefined) {
+    if (typeof n.parentId !== "string" || n.parentId.length < 1 || n.parentId.length > 32) return false;
+  }
+  if (n.reactions !== undefined) {
+    if (!n.reactions || typeof n.reactions !== "object" || Array.isArray(n.reactions)) return false;
+    const keys = Object.keys(n.reactions);
+    if (keys.length > VALID_REACTIONS.size) return false;
+    for (const k of keys) {
+      if (!VALID_REACTIONS.has(k)) return false;
+      const v = (n.reactions as Record<string, unknown>)[k];
+      if (!Array.isArray(v)) return false;
+      if (v.length > MAX_REACTORS_PER_EMOJI) return false;
+      for (const id of v) {
+        if (typeof id !== "string" || id.length < 4 || id.length > 32) return false;
+      }
+    }
+  }
   return true;
+}
+
+/**
+ * For an update on an existing sticky, compute which non-reactions fields
+ * changed (we treat `reactions` and `ts` specially). Used to allow third
+ * parties to react without satisfying ownership checks.
+ */
+function nonReactionFieldsChanged(before: StickyNote, after: StickyNote): boolean {
+  const skip = new Set(["reactions", "ts"]);
+  const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
+  for (const k of keys) {
+    if (skip.has(k)) continue;
+    const b = (before as Record<string, unknown>)[k];
+    const a = (after as Record<string, unknown>)[k];
+    if (JSON.stringify(b) !== JSON.stringify(a)) return true;
+  }
+  return false;
+}
+
+/**
+ * Validate a reactions delta: anyone may add or remove THEIR OWN identity
+ * id from a sticky's reactions; nobody may touch another user's id.
+ * Returns a violation reason string, or null if allowed.
+ */
+function validateReactionsDelta(
+  before: StickyNote,
+  after: StickyNote,
+  state: ConnState,
+): string | null {
+  if (state.isAdmin) return null;
+  const myId = state.identity.id;
+  const beforeR = before.reactions ?? {};
+  const afterR = after.reactions ?? {};
+  const emojis = new Set([...Object.keys(beforeR), ...Object.keys(afterR)]);
+  for (const emoji of emojis) {
+    if (!VALID_REACTIONS.has(emoji)) return `react-bad-emoji(${emoji.slice(0, 8)})`;
+    const b = new Set(beforeR[emoji] ?? []);
+    const a = new Set(afterR[emoji] ?? []);
+    const added: string[] = [];
+    const removed: string[] = [];
+    for (const id of a) if (!b.has(id)) added.push(id);
+    for (const id of b) if (!a.has(id)) removed.push(id);
+    if (added.length > 1 || removed.length > 1) {
+      return `react-multi(${emoji} +${added.length}/-${removed.length})`;
+    }
+    if (added.length === 1 && added[0] !== myId) {
+      return `react-add-other(${emoji})`;
+    }
+    if (removed.length === 1 && removed[0] !== myId) {
+      return `react-remove-other(${emoji})`;
+    }
+  }
+  return null;
 }
 
 function textIsClean(text: string): boolean {
@@ -456,6 +543,19 @@ export default class GreatFishParty implements Party.Server {
         if (!textIsClean(next.text)) {
           violations.push(`create-blocked-text(${key})`);
         }
+        // On creation, reactions must be either absent/empty, or contain
+        // ONLY the creator's own identity id under any emoji. Prevents
+        // seeding a new sticky with fake reactions from other users.
+        if (next.reactions) {
+          for (const [emoji, ids] of Object.entries(next.reactions)) {
+            if (!Array.isArray(ids)) continue;
+            for (const id of ids) {
+              if (!state.isAdmin && id !== state.identity.id) {
+                violations.push(`create-react-spoof(${key},${emoji})`);
+              }
+            }
+          }
+        }
         continue;
       }
 
@@ -472,13 +572,23 @@ export default class GreatFishParty implements Party.Server {
         if (next.authorId !== before.authorId) {
           violations.push(`update-rewrites-author(${key})`);
         }
-        if (!state.isAdmin && before.authorId !== state.identity.id) {
+
+        // Ownership only applies to non-reaction fields. Reactions have
+        // their own per-emoji "add-or-remove only your own id" rule so
+        // any user can react to any sticky.
+        const nonReactChanged = nonReactionFieldsChanged(before, next);
+        if (nonReactChanged && !state.isAdmin && before.authorId !== state.identity.id) {
           violations.push(`update-other(${key})`);
         }
-        if (!isValidColor(next.color)) {
+
+        const reactViolation = validateReactionsDelta(before, next, state);
+        if (reactViolation) violations.push(`${reactViolation}(${key})`);
+
+        // Color / text only need re-validation when they changed.
+        if (next.color !== before.color && !isValidColor(next.color)) {
           violations.push(`update-bad-color(${key})`);
         }
-        if (!textIsClean(next.text)) {
+        if (next.text !== before.text && !textIsClean(next.text)) {
           violations.push(`update-blocked-text(${key})`);
         }
         continue;
