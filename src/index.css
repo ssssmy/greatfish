@@ -528,20 +528,36 @@ code {
 }
 
 .sticky-circle {
-  /* Circle shape: textarea must stay centered within the round bounds */
+  /* A circle's inscribed square occupies ~70.7% of the diameter. Use 15%
+   * padding so author name + textarea sit inside the visible circle and
+   * don't get clipped by the rounded edge. */
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 12% 12%;
+  padding: 15%;
+  overflow: hidden; /* makes sure any spill from textarea is clipped to circle */
 }
 
 .sticky-circle .sticky-author {
   text-align: center;
   width: 100%;
+  /* Ellipsize long names so they don't push the textarea off-canvas. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sticky-circle textarea {
   text-align: center;
+  /* Default min-height (60px) is too tall for small circles; let it shrink. */
+  min-height: 0;
+}
+
+.sticky-circle .sticky-delete {
+  /* Default top:4 right:4 sits outside the circle. Move into the
+   * inscribed square so the X is always visible. */
+  top: 13%;
+  right: 13%;
 }
 
 .sticky:active {

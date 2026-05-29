@@ -478,7 +478,13 @@ function Toolbar({
           <button
             key={s.value}
             className={"tb-shape" + (shape === s.value ? " active" : "")}
-            onClick={() => onUpdate({ shape: s.value })}
+            onClick={() => {
+              const patch: Partial<StickyNote> = { shape: s.value };
+              // Circles below ~140px clip the author name + textarea badly,
+              // so bump width to a sane minimum when switching to circle.
+              if (s.value === "circle" && w < 140) patch.w = 140;
+              onUpdate(patch);
+            }}
             title={s.title}
           >
             {s.label}
