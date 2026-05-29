@@ -3,6 +3,7 @@ import * as Y from "yjs";
 import YPartyKitProvider from "y-partykit/provider";
 import { nanoid } from "nanoid";
 import type { Identity } from "./identity";
+import { encodeIdentityForWire, isValidHexColor, PALETTE } from "./identity";
 import { filterText } from "./filter";
 
 export type StickyNote = {
@@ -20,16 +21,22 @@ type Props = {
   channel: string;
   identity: Identity;
   partyHost: string;
-  /** Admin override — can delete and edit any sticky. */
-  admin?: boolean;
+  /** Admin token; if supplied and accepted by the server, admin gains
+   *  delete/edit access to any sticky. The server is the source of truth. */
+  adminToken?: string;
 };
 
 type ConnState = "connecting" | "connected" | "disconnected";
 
 const CREATE_LIMIT = 10; // stickies per CREATE_WINDOW
 const CREATE_WINDOW_MS = 60_000;
+const FALLBACK_COLOR = "#888";
 
-export function StickyCanvas({ channel, identity, partyHost, admin = false }: Props) {
+function safeRenderColor(value: unknown): string {
+  return isValidHexColor(value) ? value : FALLBACK_COLOR;
+}
+
+export function StickyCanvas({ channel, identity, partyHost, adminToken }: Props) {
   const stickiesRef = useRef<Y.Map<StickyNote> | null>(null);
   const [snapshot, setSnapshot] = useState<StickyNote[]>([]);
   const [connState, setConnState] = useState<ConnState>("connecting");
@@ -39,7 +46,13 @@ export function StickyCanvas({ channel, identity, partyHost, admin = false }: Pr
 
   useEffect(() => {
     const doc = new Y.Doc();
-    const provider = new YPartyKitProvider(partyHost, channel, doc, { party: "main" });
+    const provider = new YPartyKitProvider(partyHost, channel, doc, {
+      party: "main",
+      params: {
+        identity: encodeIdentityForWire(identity),
+        admin: adminToken ? adminToken : null,
+      },
+    });
     const stickies = doc.getMap<StickyNote>("stickies");
     stickiesRef.current = stickies;
 
@@ -59,7 +72,7 @@ export function StickyCanvas({ channel, identity, partyHost, admin = false }: Pr
       doc.destroy();
       stickiesRef.current = null;
     };
-  }, [channel, partyHost]);
+  }, [channel, partyHost, identity, adminToken]);
 
   function showToast(msg: string) {
     setToast(msg);
@@ -81,12 +94,17 @@ export function StickyCanvas({ channel, identity, partyHost, admin = false }: Pr
       showToast(`慢一点,1 分钟最多 ${CREATE_LIMIT} 条`);
       return;
     }
+    // Always use our own identity color from the palette to keep the value
+    // safe even if a future bug leaks a non-palette value into the type.
+    const color = PALETTE.includes(identity.color as (typeof PALETTE)[number])
+      ? identity.color
+      : PALETTE[0];
     const note: StickyNote = {
       id: nanoid(),
       x,
       y,
       text: "",
-      color: identity.color,
+      color,
       authorId: identity.id,
       authorName: identity.name,
       ts: Date.now(),
@@ -113,7 +131,17 @@ export function StickyCanvas({ channel, identity, partyHost, admin = false }: Pr
         patch = { ...patch, text: f.cleaned };
       }
     }
-    stickies.set(id, { ...existing, ...patch, ts: Date.now() });
+
+    // Never let the client mutate authorId / authorName even by accident —
+    // the server would reject, but this keeps optimistic local state honest.
+    const safePatch: Partial<StickyNote> = { ...patch };
+    delete safePatch.authorId;
+    delete safePatch.authorName;
+    if (safePatch.color !== undefined && !isValidHexColor(safePatch.color)) {
+      delete safePatch.color;
+    }
+
+    stickies.set(id, { ...existing, ...safePatch, ts: Date.now() });
   }
 
   function deleteSticky(id: string) {
@@ -125,10 +153,10 @@ export function StickyCanvas({ channel, identity, partyHost, admin = false }: Pr
       <header className="topbar">
         <div className="brand">
           GreatFish · #{channel}
-          {admin && <span className="badge-admin">admin</span>}
+          {adminToken && <span className="badge-admin">admin</span>}
         </div>
         <div className="meta">
-          <span className="dot" style={{ background: identity.color }} />
+          <span className="dot" style={{ background: safeRenderColor(identity.color) }} />
           <span>{identity.name}</span>
           <span className={`conn conn-${connState}`}>{connState}</span>
           <span className="hint">双击空白处贴便利贴</span>
@@ -139,8 +167,8 @@ export function StickyCanvas({ channel, identity, partyHost, admin = false }: Pr
           <Sticky
             key={s.id}
             note={s}
-            editable={admin || s.authorId === identity.id}
-            canDelete={admin || s.authorId === identity.id}
+            editable={!!adminToken || s.authorId === identity.id}
+            canDelete={!!adminToken || s.authorId === identity.id}
             onUpdate={(patch) => updateSticky(s.id, patch)}
             onDelete={() => deleteSticky(s.id)}
           />
@@ -199,7 +227,7 @@ function Sticky({
       style={{
         left: note.x,
         top: note.y,
-        background: note.color,
+        background: safeRenderColor(note.color),
       }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}

@@ -2,16 +2,15 @@
 // content instead of an empty canvas.
 //
 // Usage:
-//   node scripts/seed.mjs                 # seed against localhost:1999
-//   PARTY_HOST=greatfish-sync.example.com node scripts/seed.mjs   # production
+//   node scripts/seed.mjs                                           # local
+//   PARTY_HOST=greatfish-sync.example.com node scripts/seed.mjs     # prod
 //
-// Safe to re-run: writes the same nanoids so re-runs idempotently overwrite.
+// Idempotent: re-runs overwrite the same nanoids.
 
 import * as Y from "yjs";
 import YPartyKitProvider from "y-partykit/provider";
 import { WebSocket as WsBase } from "ws";
 import { HttpsProxyAgent } from "https-proxy-agent";
-import { nanoid } from "nanoid";
 
 const HOST = process.env.PARTY_HOST ?? "127.0.0.1:1999";
 const PROXY = process.env.HTTPS_PROXY || process.env.https_proxy;
@@ -25,10 +24,15 @@ class WebSocket extends WsBase {
 }
 
 const SEED_AUTHOR = {
-  id: "seed-bot",
+  id: "seedbot1234",
   name: "GreatFish 站长",
   color: "#f59e0b",
 };
+
+function encodeIdentity(identity) {
+  const json = JSON.stringify(identity);
+  return Buffer.from(json, "utf8").toString("base64");
+}
 
 const SEEDS = {
   "work-tea": [
@@ -52,18 +56,21 @@ const SEEDS = {
   ],
 };
 
-const grid = (n, idx) => {
+const grid = (idx) => {
   const cols = 3;
   const col = idx % cols;
   const row = Math.floor(idx / cols);
   return { x: 40 + col * 220, y: 80 + row * 140 };
 };
 
-async function seedRoom(slug, lines) {
+async function seedRoom(slug, lines, adminToken) {
   const doc = new Y.Doc();
+  const params = { identity: encodeIdentity(SEED_AUTHOR) };
+  if (adminToken) params.admin = adminToken;
   const provider = new YPartyKitProvider(HOST, slug, doc, {
     party: "main",
     WebSocketPolyfill: WebSocket,
+    params,
   });
   const stickies = doc.getMap("stickies");
 
@@ -78,14 +85,11 @@ async function seedRoom(slug, lines) {
     provider.on("status", onStatus);
   });
 
-  // Brief wait so the initial sync (`syncStep1`) round-trips before we write,
-  // otherwise our writes can race against the server's persisted state being
-  // delivered to us.
   await new Promise((r) => setTimeout(r, 500));
 
   lines.forEach((text, i) => {
-    const id = `seed-${slug}-${i}`;
-    const pos = grid(lines.length, i);
+    const id = `seed${slug.replace(/-/g, "")}${i}`;
+    const pos = grid(i);
     stickies.set(id, {
       id,
       x: pos.x,
@@ -98,20 +102,25 @@ async function seedRoom(slug, lines) {
     });
   });
 
-  // Let the provider flush updates to the server before we tear down.
-  await new Promise((r) => setTimeout(r, 600));
+  await new Promise((r) => setTimeout(r, 1200));
   provider.destroy();
   console.log(`✅ seeded #${slug} with ${lines.length} stickies`);
+}
+
+const adminToken = process.env.ADMIN_TOKEN;
+if (!adminToken) {
+  console.warn(
+    "[seed] no ADMIN_TOKEN — seeds will be created as 'seed-bot' identity. " +
+      "If you re-run later from a different machine, the same identity " +
+      "is required to overwrite them.",
+  );
 }
 
 console.log(`seeding via ${HOST}…`);
 
 for (const [slug, lines] of Object.entries(SEEDS)) {
-  await seedRoom(slug, lines);
+  await seedRoom(slug, lines, adminToken);
 }
-
-// nanoid is imported for future randomized seeding — keep the import alive.
-void nanoid;
 
 console.log("done");
 process.exit(0);

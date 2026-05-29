@@ -13,6 +13,7 @@
     "party:login": "node --import ./scripts/proxy-bootstrap.mjs ./node_modules/partykit/dist/bin.mjs login"
   },
   "dependencies": {
+    "lib0": "^0.2.117",
     "mint-filter": "^4.0.3",
     "nanoid": "^5.0.7",
     "partysocket": "^1.0.2",
@@ -20,6 +21,7 @@
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.26.2",
     "y-partykit": "^0.0.33",
+    "y-protocols": "^1.0.7",
     "yjs": "^13.6.20"
   },
   "devDependencies": {

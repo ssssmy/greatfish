@@ -3,11 +3,13 @@ import { Link } from "react-router-dom";
 import * as Y from "yjs";
 import YPartyKitProvider from "y-partykit/provider";
 import type { StickyNote } from "./StickyCanvas";
+import { encodeIdentityForWire, getIdentity, isValidHexColor } from "./identity";
 
 type RoomState = {
   slug: string;
   stickies: StickyNote[];
   connected: boolean;
+  rejected: boolean;
 };
 
 type Props = {
@@ -16,6 +18,7 @@ type Props = {
 };
 
 const ADMIN_KEY = "greatfish.admin.token";
+const FALLBACK_COLOR = "#888";
 
 function getStoredToken(): string | null {
   return localStorage.getItem(ADMIN_KEY);
@@ -29,29 +32,13 @@ function clearToken() {
   localStorage.removeItem(ADMIN_KEY);
 }
 
-// Client-side admin gate. The only acceptable tokens are listed here.
-// Anyone reading the JS bundle can see these strings — this is intentionally
-// only "stop a casual passerby" level security, not real auth. The proper
-// fix (server-side ADMIN_TOKEN check inside party/index.ts) is V2 work.
-//
-// VITE_ADMIN_TOKEN is read at build time from .env.production (or the
-// deploy-web.yml workflow env). If set, that exact value is also accepted
-// — letting you use the same long random token everywhere without baking
-// the dev token into prod.
-const DEV_TOKEN = "greatfish-admin-dev";
-const PROD_TOKEN = (import.meta.env.VITE_ADMIN_TOKEN ?? "").trim();
-
-function isAcceptable(input: string): boolean {
-  if (!input) return false;
-  if (import.meta.env.DEV && input === DEV_TOKEN) return true;
-  if (PROD_TOKEN && input === PROD_TOKEN) return true;
-  return false;
+function safeRenderColor(value: unknown): string {
+  return isValidHexColor(value) ? value : FALLBACK_COLOR;
 }
 
 export function Admin({ channels, partyHost }: Props) {
   const [token, setToken] = useState<string | null>(getStoredToken);
   const [draft, setDraft] = useState("");
-  const [error, setError] = useState("");
 
   if (!token) {
     return (
@@ -61,19 +48,15 @@ export function Admin({ channels, partyHost }: Props) {
         </Link>
         <h1>admin · 登录</h1>
         <p className="muted">
-          {import.meta.env.DEV
-            ? "Dev 环境,默认 token: greatfish-admin-dev。"
-            : "需要正确的 admin token。"}
+          输入 admin token。服务端校验,错的连不上 sync server。
         </p>
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (isAcceptable(draft)) {
-              storeToken(draft);
-              setToken(draft);
-              setError("");
-            } else {
-              setError("token 错误");
+            const t = draft.trim();
+            if (t) {
+              storeToken(t);
+              setToken(t);
             }
           }}
         >
@@ -88,7 +71,6 @@ export function Admin({ channels, partyHost }: Props) {
           <button type="submit" className="btn">
             进入
           </button>
-          {error && <p className="muted" style={{ color: "#ef4444", marginTop: 8 }}>{error}</p>}
         </form>
       </div>
     );
@@ -112,10 +94,21 @@ export function Admin({ channels, partyHost }: Props) {
       </div>
       <h1>admin · 公共瓜区监控</h1>
       <p className="muted">
-        全部频道的便利贴按时间倒序。点删除按钮 = Yjs 直接 delete,所有在线客户端会立刻看到。
+        全部频道的便利贴按时间倒序。删除按钮调 Yjs delete,服务端校验后所有在线
+        客户端立刻看到。如果出现「连接被拒」,token 不对。
       </p>
       {channels.map((c) => (
-        <AdminChannel key={c.slug} slug={c.slug} name={c.name} partyHost={partyHost} />
+        <AdminChannel
+          key={c.slug}
+          slug={c.slug}
+          name={c.name}
+          partyHost={partyHost}
+          adminToken={token}
+          onTokenRejected={() => {
+            clearToken();
+            setToken(null);
+          }}
+        />
       ))}
     </div>
   );
@@ -125,21 +118,33 @@ function AdminChannel({
   slug,
   name,
   partyHost,
+  adminToken,
+  onTokenRejected,
 }: {
   slug: string;
   name: string;
   partyHost: string;
+  adminToken: string;
+  onTokenRejected: () => void;
 }) {
   const stickiesRef = useRef<Y.Map<StickyNote> | null>(null);
+  const identity = useMemo(() => getIdentity(), []);
   const [state, setState] = useState<RoomState>({
     slug,
     stickies: [],
     connected: false,
+    rejected: false,
   });
 
   useEffect(() => {
     const doc = new Y.Doc();
-    const provider = new YPartyKitProvider(partyHost, slug, doc, { party: "main" });
+    const provider = new YPartyKitProvider(partyHost, slug, doc, {
+      party: "main",
+      params: {
+        identity: encodeIdentityForWire(identity),
+        admin: adminToken,
+      },
+    });
     const stickies = doc.getMap<StickyNote>("stickies");
     stickiesRef.current = stickies;
 
@@ -158,14 +163,30 @@ function AdminChannel({
       setState((s) => ({ ...s, connected: true }));
     }
 
+    // If the server closes us with our auth code (4001) repeatedly, the token
+    // is probably wrong — surface that to the user.
+    let disconnectCount = 0;
+    const onConnectionClose = (e: { code?: number; reason?: string }) => {
+      if (e?.code === 4001) {
+        onTokenRejected();
+        return;
+      }
+      disconnectCount++;
+      if (disconnectCount > 3) {
+        setState((s) => ({ ...s, rejected: true }));
+      }
+    };
+    provider.on("connection-close", onConnectionClose);
+
     return () => {
       stickies.unobserve(refresh);
       provider.off("status", onStatus);
+      provider.off("connection-close", onConnectionClose);
       provider.destroy();
       doc.destroy();
       stickiesRef.current = null;
     };
-  }, [slug, partyHost]);
+  }, [slug, partyHost, identity, adminToken, onTokenRejected]);
 
   function del(id: string) {
     stickiesRef.current?.delete(id);
@@ -180,13 +201,18 @@ function AdminChannel({
         </span>{" "}
         <span className="muted">({state.stickies.length})</span>
       </h2>
+      {state.rejected && (
+        <div className="empty" style={{ color: "#ef4444", borderColor: "#7f1d1d" }}>
+          连接被拒,token 可能不对。点右上"登出"重新输入。
+        </div>
+      )}
       <div className="admin-list">
         {state.stickies.length === 0 ? (
           <div className="empty">还没有便利贴</div>
         ) : (
           state.stickies.map((s) => (
             <div key={s.id} className="admin-row">
-              <span className="dot" style={{ background: s.color }} />
+              <span className="dot" style={{ background: safeRenderColor(s.color) }} />
               <span className="admin-author">{s.authorName}</span>
               <span className="admin-text">{s.text || <em className="muted">(空)</em>}</span>
               <span className="muted">{new Date(s.ts).toLocaleString("zh-CN")}</span>
@@ -198,16 +224,5 @@ function AdminChannel({
         )}
       </div>
     </section>
-  );
-}
-
-export function AdminLink() {
-  // Tiny anchor in the footer of the home page — admin URL is unguessable
-  // enough that we don't need extra obscurity in dev.
-  const link = useMemo(() => "/admin", []);
-  return (
-    <Link to={link} className="muted">
-      admin
-    </Link>
   );
 }
